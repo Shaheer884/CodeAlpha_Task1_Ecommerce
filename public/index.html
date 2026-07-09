@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlphaShop - Smart Shopping Starts Here</title>
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Discover premium electronics, fashion, and home essentials at AlphaShop. Smart shopping starts here with secure checkout and fast delivery.">
+  <meta name="keywords" content="eCommerce, smart shopping, premium products, fast shipping, AlphaShop">
+  <meta name="robots" content="index, follow">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>α</text></svg>">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Bootstrap 5 & Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- AOS (Animate on Scroll) -->
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  
+  <!-- Animate.css -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  
+  <!-- Swiper.js Slider CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
+
+  <!-- Vanilla Custom CSS -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="/" class="nav-brand" id="nav-brand-logo">
+        <span class="logo-accent">α</span>lphaShop
+      </a>
+      
+      <!-- Search Bar -->
+      <div class="nav-search">
+        <form id="search-form" onsubmit="event.preventDefault();">
+          <input type="text" id="search-input" placeholder="Search products, brands...">
+          <button type="submit"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </form>
+      </div>
+      
+      <!-- Nav Action Controls -->
+      <div class="nav-actions">
+        <!-- Theme Switcher -->
+        <button id="theme-toggle" class="btn-icon" aria-label="Toggle dark mode">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+
+        <!-- Cart Button -->
+        <button id="cart-toggle-btn" class="btn-icon cart-btn" aria-label="Shopping cart">
+          <i class="fa-solid fa-bag-shopping"></i>
+          <span class="cart-badge" id="cart-badge-count">0</span>
+        </button>
+        
+        <!-- User Area -->
+        <div class="user-menu-container" id="user-menu-area">
+          <a href="/login" class="btn btn-primary btn-sm login-nav-btn" id="login-link">
+            <i class="fa-solid fa-user"></i> Login
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Search (Visible on mobile viewports only) -->
+  <div class="mobile-search-bar">
+    <form id="mobile-search-form" onsubmit="event.preventDefault();">
+      <input type="text" id="mobile-search-input" placeholder="Search products...">
+      <button type="submit"><i class="fa-solid fa-magnifying-glass"></i></button>
+    </form>
+  </div>
+
+  <!-- Main View Container -->
+  <main class="main-content">
+    <div id="app-root">
+      <!-- Dynamic pages render here -->
+      <div class="loader-container">
+        <div class="loader"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-brand-section">
+        <h3 class="footer-logo">AlphaShop</h3>
+        <p class="footer-tagline">Smart Shopping Starts Here</p>
+        <p class="footer-desc">Your ultimate hub for premium products, tailored service, and immediate checkout support. Experience shopping redefined.</p>
+        <div class="footer-socials">
+          <a href="#" aria-label="Facebook"><i class="fa-brands fa-facebook"></i></a>
+          <a href="#" aria-label="Twitter"><i class="fa-brands fa-twitter"></i></a>
+          <a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+          <a href="#" aria-label="LinkedIn"><i class="fa-brands fa-linkedin"></i></a>
+        </div>
+      </div>
+      
+      <div class="footer-links-grid">
+        <div class="footer-column">
+          <h4>Shop</h4>
+          <ul>
+            <li><a href="/" class="footer-category-link">All Products</a></li>
+            <li><a href="#" class="footer-category-link" data-cat="electronics">Electronics</a></li>
+            <li><a href="#" class="footer-category-link" data-cat="fashion">Fashion</a></li>
+            <li><a href="#" class="footer-category-link" data-cat="home">Home & living</a></li>
+          </ul>
+        </div>
+        <div class="footer-column">
+          <h4>Support</h4>
+          <ul>
+            <li><a href="#">Help Center</a></li>
+            <li><a href="#">Track Order</a></li>
+            <li><a href="#">Returns & Refunds</a></li>
+            <li><a href="#">Contact Us</a></li>
+          </ul>
+        </div>
+        <div class="footer-column">
+          <h4>Company</h4>
+          <ul>
+            <li><a href="#">About AlphaShop</a></li>
+            <li><a href="#">Careers</a></li>
+            <li><a href="#">Store Locator</a></li>
+            <li><a href="#">Corporate Values</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <div class="footer-bottom-container">
+        <p>&copy; 2026 AlphaShop. All rights reserved.</p>
+        <div class="footer-policies">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+          <a href="#">Cookie Policy</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Shopping Cart Slide-out Drawer -->
+  <div class="cart-drawer-overlay" id="cart-overlay"></div>
+  <aside class="cart-drawer" id="cart-drawer">
+    <div class="cart-header">
+      <h3>Your Cart (<span id="cart-drawer-count">0</span>)</h3>
+      <button id="cart-close-btn" class="btn-icon" aria-label="Close cart"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    
+    <div class="cart-body" id="cart-items-container">
+      <!-- Cart items loaded dynamically -->
+      <div class="cart-empty-state">
+        <i class="fa-solid fa-basket-shopping"></i>
+        <p>Your cart is empty</p>
+        <button class="btn btn-secondary btn-sm" id="cart-start-shopping">Start Shopping</button>
+      </div>
+    </div>
+    
+    <div class="cart-footer" id="cart-footer-area">
+      <div class="cart-subtotal">
+        <span>Subtotal</span>
+        <span id="cart-total-amount">$0.00</span>
+      </div>
+      <p class="cart-tax-info">Shipping and taxes calculated at checkout.</p>
+      <button class="btn btn-primary btn-block" id="cart-checkout-btn">Proceed to Checkout</button>
+    </div>
+  </aside>
+
+  <!-- Global Modal Dialog (Used for dynamic forms: create/edit items or details) -->
+  <div class="modal-overlay" id="global-modal-overlay"></div>
+  <div class="modal" id="global-modal">
+    <button class="modal-close-btn" id="global-modal-close" aria-label="Close modal"><i class="fa-solid fa-xmark"></i></button>
+    <div class="modal-body" id="global-modal-body">
+      <!-- Dynamic form content loaded here -->
+    </div>
+  </div>
+
+  <!-- Toast Notifications Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Bootstrap 5 bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- AOS JS -->
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  
+  <!-- Swiper.js Slider JS -->
+  <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
+  
+  <!-- SweetAlert2 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <!-- Application Logic Scripts -->
+  <script src="/js/app.js" type="module"></script>
+</body>
+</html>
