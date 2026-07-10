@@ -3319,12 +3319,27 @@ Router.add('/customer/dashboard', showCustomerDashboardPage);
 // Document ready bootstrap
 document.addEventListener('DOMContentLoaded', async () => {
   // 1. Initial UI Setup & Session Checking
-  // If session storage has login credentials (remember me unchecked), transfer to state
-  const sessionUser = sessionStorage.getItem('alpha_user');
-  const sessionToken = sessionStorage.getItem('alpha_token');
+  const sessionUser = sessionStorage.getItem('alpha_user') || localStorage.getItem('alpha_user');
+  const sessionToken = sessionStorage.getItem('alpha_token') || localStorage.getItem('alpha_token');
   if (sessionUser && sessionToken) {
     AppState.user = JSON.parse(sessionUser);
     AppState.token = sessionToken;
+  }
+
+  // Synchronously verify and sync the user profile with the server
+  if (AppState.token) {
+    try {
+      const profileRes = await apiCall('/api/auth/profile');
+      AppState.user = profileRes.data;
+      if (sessionStorage.getItem('alpha_token')) {
+        sessionStorage.setItem('alpha_user', JSON.stringify(profileRes.data));
+      }
+      if (localStorage.getItem('alpha_token')) {
+        localStorage.setItem('alpha_user', JSON.stringify(profileRes.data));
+      }
+    } catch (err) {
+      console.error('Failed to sync profile status from server:', err);
+    }
   }
 
   renderUserNavbarArea();
