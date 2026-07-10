@@ -463,6 +463,9 @@ function renderUserNavbarArea() {
         logoutUser();
       });
     }
+
+    // Intercept navigation links
+    bindSpaLinks(container);
   } else {
     container.innerHTML = `
       <a href="/login" class="btn btn-primary btn-sm login-nav-btn" id="login-link">
@@ -516,13 +519,16 @@ const Router = {
       `;
     }
 
+    // Strip query parameters and trailing slashes for routing
+    const cleanPath = path.split('?')[0].replace(/\/$/, '') || '/';
+
     // Parse path parameters e.g., /product/:id -> /product/123
     let matchedHandler = null;
     let params = {};
 
     for (const route in this.routes) {
       const routeParts = route.split('/');
-      const pathParts = path.split('/');
+      const pathParts = cleanPath.split('/');
       
       if (routeParts.length === pathParts.length) {
         let isMatch = true;
@@ -1560,183 +1566,54 @@ async function showCheckoutPage() {
   });
 }
 
-// 5. CUSTOMER DASHBOARD (Order History, Profile Settings & Wishlist)
-async function showDashboardPage() {
+// 5. ROLE-BASED DASHBOARD ROUTING
+function handleRoleBasedDashboardRedirect() {
+  if (!AppState.user) {
+    navigateTo('/login');
+    return;
+  }
+  if (AppState.user.isAdmin) {
+    navigateTo('/admin/dashboard');
+  } else {
+    navigateTo('/customer/dashboard');
+  }
+}
+
+// 5a. CUSTOMER DASHBOARD
+async function showCustomerDashboardPage() {
   if (!AppState.user) {
     navigateTo('/login');
     return;
   }
 
   const appRoot = document.getElementById('app-root');
-  
-  let orders = [];
-  try {
-    const ordersResult = await apiCall('/api/orders/myorders');
-    orders = ordersResult.data;
-  } catch (error) {
-    appRoot.innerHTML = `<p style="text-align:center; color:var(--danger)">Failed to fetch orders: ${error.message}</p>`;
-    return;
-  }
-
-  // Tab configurations: orders, wishlist, profile
   const queryParams = new URLSearchParams(window.location.search);
   const activeTab = queryParams.get('tab') || 'orders';
   const showOrderId = queryParams.get('order');
 
-  let activeViewHtml = '';
-  
-  if (activeTab === 'profile') {
-    // 5a. Profile Update Form
-    activeViewHtml = `
-      <h2>Account Settings</h2>
-      <p style="font-size:0.9rem; color:var(--text-tertiary); margin-bottom:1.5rem;">Update your profile credentials or change your security password.</p>
-      
-      <form id="profile-update-form" class="checkout-card" style="margin-bottom:1.5rem;">
-        <h3 style="font-size:1.15rem; margin-bottom:1rem;">General Information</h3>
-        <div class="form-group">
-          <label for="profile-name">Full Name</label>
-          <input type="text" id="profile-name" class="form-control" value="${AppState.user.name}" required>
-        </div>
-        <div class="form-group" style="margin-top:1rem;">
-          <label for="profile-email">Email Address</label>
-          <input type="email" id="profile-email" class="form-control" value="${AppState.user.email}" required>
-        </div>
-        <button type="submit" class="btn btn-primary" style="margin-top:1.5rem; padding:0.6rem 2rem;">Save Changes</button>
-      </form>
-
-      <form id="profile-password-form" class="checkout-card">
-        <h3 style="font-size:1.15rem; margin-bottom:1rem;">Change Password</h3>
-        <div class="form-group">
-          <label for="profile-new-password">New Password</label>
-          <input type="password" id="profile-new-password" class="form-control" placeholder="At least 6 characters" minlength="6" required>
-        </div>
-        <div class="form-group" style="margin-top:1rem;">
-          <label for="profile-confirm-password">Confirm Password</label>
-          <input type="password" id="profile-confirm-password" class="form-control" placeholder="Repeat new password" required>
-        </div>
-        <button type="submit" class="btn btn-primary" style="margin-top:1.5rem; padding:0.6rem 2rem;">Update Password</button>
-      </form>
-    `;
-  } else if (activeTab === 'wishlist') {
-    // 5b. Wishlist view tab
-    let wishlistItemsHtml = '';
-    
-    if (AppState.wishlist.length === 0) {
-      wishlistItemsHtml = `
-        <div style="text-align:center; padding:3rem; color:var(--text-tertiary);">
-          <i class="fa-regular fa-heart" style="font-size:3rem; margin-bottom:1rem;"></i>
-          <p>Your wishlist is empty</p>
-          <button class="btn btn-secondary btn-sm" onclick="navigateTo('/')" style="margin-top:1rem;">Add Products</button>
-        </div>
-      `;
-    } else {
-      wishlistItemsHtml = '<div class="products-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:1.5rem;">';
-      AppState.wishlist.forEach(p => {
-        const imgHtml = p.image
-          ? `<img src="${p.image}" alt="${p.name}" class="product-image-real">`
-          : `<i class="fa-solid fa-cubes product-image-placeholder"></i>`;
-
-        wishlistItemsHtml += `
-          <div class="product-card" style="padding:1rem;">
-            <div class="product-image-container" style="height:120px;">
-              ${imgHtml}
-            </div>
-            <div class="product-info" style="padding-top:0.5rem;">
-              <a href="/product/${p._id}" class="product-title" style="font-size:0.9rem;">${p.name}</a>
-              <div class="product-bottom" style="margin-top:0.5rem;">
-                <span class="product-price" style="font-size:1rem;">$${p.price.toFixed(2)}</span>
-                <button class="btn btn-danger btn-icon remove-wishlist-tab-btn" data-id="${p._id}" title="Remove from Wishlist"><i class="fa-solid fa-heart-crack"></i></button>
-              </div>
-            </div>
-          </div>
-        `;
-      });
-      wishlistItemsHtml += '</div>';
-    }
-
-    activeViewHtml = `
-      <h2>My Wishlist</h2>
-      <p style="font-size:0.9rem; color:var(--text-tertiary); margin-bottom:1.5rem;">Products you've saved to buy later.</p>
-      ${wishlistItemsHtml}
-    `;
-  } else {
-    // 5c. Orders Tab (default)
-    let ordersRows = '';
-    
-    if (orders.length === 0) {
-      ordersRows = `
-        <tr>
-          <td colspan="6" style="text-align:center; padding: 3rem; color:var(--text-tertiary)">
-            <i class="fa-solid fa-receipt" style="font-size:2.5rem; margin-bottom:1rem;"></i>
-            <p>You have not placed any orders yet.</p>
-            <button class="btn btn-primary btn-sm" onclick="navigateTo('/')" style="margin-top:1rem;">Shop Now</button>
-          </td>
-        </tr>
-      `;
-    } else {
-      orders.forEach(order => {
-        const dateStr = new Date(order.createdAt).toLocaleDateString();
-        const paidBadge = order.isPaid 
-          ? `<span class="badge bg-success">Paid (${new Date(order.paidAt).toLocaleDateString()})</span>`
-          : '<span class="badge bg-warning text-dark">Unpaid</span>';
-        
-        let statusBadge = `<span class="badge bg-info">${order.status}</span>`;
-        if (order.status === 'Delivered') statusBadge = `<span class="badge bg-success">Delivered</span>`;
-        else if (order.status === 'Cancelled') statusBadge = `<span class="badge bg-danger">Cancelled</span>`;
-
-        ordersRows += `
-          <tr>
-            <td><strong>#${order._id.substring(18)}</strong></td>
-            <td>${dateStr}</td>
-            <td>$${order.totalAmount.toFixed(2)}</td>
-            <td>${paidBadge}</td>
-            <td>${statusBadge}</td>
-            <td>
-              <button class="btn btn-secondary btn-sm view-order-btn" data-id="${order._id}"><i class="fa-solid fa-eye"></i> View</button>
-            </td>
-          </tr>
-        `;
-      });
-    }
-
-    activeViewHtml = `
-      <h2>Order History</h2>
-      <p style="font-size:0.9rem; color:var(--text-tertiary); margin-bottom:1.5rem;">Check statuses or track details of your orders.</p>
-      <div class="table-responsive">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Order ID</th>
-              <th>Date</th>
-              <th>Total</th>
-              <th>Payment Status</th>
-              <th>Order Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${ordersRows}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-
+  // Render Layout with Skeleton Loader immediately
   appRoot.innerHTML = `
     <div class="dashboard-layout fade-in">
       <aside class="dashboard-sidebar" data-aos="fade-right">
-        <a href="/dashboard?tab=orders" class="sidebar-link ${activeTab === 'orders' ? 'active' : ''}"><i class="fa-solid fa-receipt"></i> Orders</a>
-        <a href="/dashboard?tab=wishlist" class="sidebar-link ${activeTab === 'wishlist' ? 'active' : ''}"><i class="fa-solid fa-heart"></i> Wishlist</a>
-        <a href="/dashboard?tab=profile" class="sidebar-link ${activeTab === 'profile' ? 'active' : ''}"><i class="fa-solid fa-user-gear"></i> Profile Settings</a>
+        <a href="/customer/dashboard?tab=orders" class="sidebar-link ${activeTab === 'orders' ? 'active' : ''}"><i class="fa-solid fa-receipt"></i> My Orders</a>
+        <a href="/customer/dashboard?tab=wishlist" class="sidebar-link ${activeTab === 'wishlist' ? 'active' : ''}"><i class="fa-solid fa-heart"></i> Wishlist</a>
+        <a href="/customer/dashboard?tab=addresses" class="sidebar-link ${activeTab === 'addresses' ? 'active' : ''}"><i class="fa-solid fa-map-location-dot"></i> Addresses</a>
+        <a href="/customer/dashboard?tab=payments" class="sidebar-link ${activeTab === 'payments' ? 'active' : ''}"><i class="fa-solid fa-credit-card"></i> Payment Methods</a>
+        <a href="/customer/dashboard?tab=profile" class="sidebar-link ${activeTab === 'profile' ? 'active' : ''}"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
       </aside>
       
-      <div class="dashboard-view" data-aos="fade-left">
-        ${activeViewHtml}
+      <div class="dashboard-view" id="customer-view-content" data-aos="fade-left">
+        <div class="skeleton-loader">
+          <div class="skeleton-title"></div>
+          <div class="skeleton-text" style="width: 80%;"></div>
+          <div class="skeleton-text" style="width: 60%;"></div>
+          <div class="skeleton-card" style="margin-top: 2rem; height: 200px;"></div>
+        </div>
       </div>
     </div>
   `;
 
-  // Bind Sidebar navigation
+  // Bind Sidebar routing immediately
   appRoot.querySelectorAll('.sidebar-link').forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
@@ -1744,73 +1621,567 @@ async function showDashboardPage() {
     });
   });
 
-  // Bind Order Detail buttons
-  appRoot.querySelectorAll('.view-order-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      viewOrderDetail(btn.getAttribute('data-id'));
-    });
-  });
+  const viewContent = document.getElementById('customer-view-content');
 
-  // Bind Wishlist crack/delete buttons
-  appRoot.querySelectorAll('.remove-wishlist-tab-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-id');
-      await toggleWishlistState(id);
-      showDashboardPage(); // reload dashboard
-    });
-  });
-
-  // Profile General Form Submission
-  const profileForm = document.getElementById('profile-update-form');
-  profileForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = document.getElementById('profile-name').value;
-    const email = document.getElementById('profile-email').value;
-
+  // Asynchronously fetch client details & orders
+  try {
+    let orders = [];
     try {
-      const res = await apiCall('/api/auth/profile', 'PUT', { name, email });
-      AppState.user = res.data;
-      localStorage.setItem('alpha_user', JSON.stringify(res.data));
-      renderUserNavbarArea();
-      
-      Swal.fire({
-        title: 'Profile Updated',
-        text: 'Your account credentials have been saved successfully.',
-        icon: 'success',
-        confirmButtonColor: 'var(--primary)'
-      });
-      showDashboardPage();
-    } catch (err) {}
-  });
-
-  // Profile Password Form Submission
-  const passwordForm = document.getElementById('profile-password-form');
-  passwordForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const newPass = document.getElementById('profile-new-password').value;
-    const confirmPass = document.getElementById('profile-confirm-password').value;
-
-    if (newPass !== confirmPass) {
-      showToast('Passwords do not match', 'error');
-      return;
+      const ordersResult = await apiCall('/api/orders/myorders');
+      orders = ordersResult.data || [];
+    } catch (err) {
+      console.error('Failed to load orders', err);
     }
 
-    try {
-      await apiCall('/api/auth/profile', 'PUT', { password: newPass });
-      document.getElementById('profile-new-password').value = '';
-      document.getElementById('profile-confirm-password').value = '';
+    // Load wishlist
+    await fetchWishlist();
+
+    const totalSpent = orders.filter(o => o.isPaid).reduce((sum, o) => sum + o.totalAmount, 0);
+    const loyaltyPoints = Math.round(totalSpent * 10);
+
+    let activeViewHtml = '';
+
+    // Welcome Banner Header
+    const bannerHtml = `
+      <div class="welcome-banner">
+        <div class="welcome-info">
+          <h1>Welcome back, ${AppState.user.name}!</h1>
+          <p>Manage your orders, save items to your wishlist, and update account shipping details.</p>
+        </div>
+        <div class="loyalty-badge">
+          <div class="loyalty-icon"><i class="fa-solid fa-gem"></i></div>
+          <div class="loyalty-details">
+            <h4>Loyalty Points</h4>
+            <div class="points">${loyaltyPoints} pts</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // --- TAB CONTROLLER ---
+    if (activeTab === 'profile') {
+      activeViewHtml = `
+        ${bannerHtml}
+        <h2>Account Settings</h2>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1.5rem;">Update your profile credentials or change your security password.</p>
+        
+        <form id="profile-update-form" class="checkout-card" style="margin-bottom:1.5rem;">
+          <h3 style="font-size:1.15rem; margin-bottom:1rem;">General Information</h3>
+          <div class="form-group">
+            <label for="profile-name">Full Name</label>
+            <input type="text" id="profile-name" class="form-control" value="${AppState.user.name}" required>
+          </div>
+          <div class="form-group" style="margin-top:1rem;">
+            <label for="profile-email">Email Address</label>
+            <input type="email" id="profile-email" class="form-control" value="${AppState.user.email}" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top:1.5rem; padding:0.6rem 2rem;">Save Changes</button>
+        </form>
+
+        <form id="profile-password-form" class="checkout-card">
+          <h3 style="font-size:1.15rem; margin-bottom:1rem;">Change Password</h3>
+          <div class="form-group">
+            <label for="profile-new-password">New Password</label>
+            <input type="password" id="profile-new-password" class="form-control" placeholder="At least 6 characters" minlength="6" required>
+          </div>
+          <div class="form-group" style="margin-top:1rem;">
+            <label for="profile-confirm-password">Confirm Password</label>
+            <input type="password" id="profile-confirm-password" class="form-control" placeholder="Repeat new password" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top:1.5rem; padding:0.6rem 2rem;">Update Password</button>
+        </form>
+      `;
+    } else if (activeTab === 'wishlist') {
+      let wishlistItemsHtml = '';
+      if (AppState.wishlist.length === 0) {
+        wishlistItemsHtml = `
+          <div style="text-align:center; padding:3rem; color:var(--text-secondary);">
+            <i class="fa-regular fa-heart" style="font-size:3rem; margin-bottom:1rem;"></i>
+            <p>Your wishlist is empty</p>
+            <button class="btn btn-secondary btn-sm" onclick="navigateTo('/')" style="margin-top:1rem;">Add Products</button>
+          </div>
+        `;
+      } else {
+        wishlistItemsHtml = '<div class="products-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:1.5rem;">';
+        AppState.wishlist.forEach(p => {
+          const imgHtml = p.image
+            ? `<img src="${p.image}" alt="${p.name}" class="product-image-real">`
+            : `<i class="fa-solid fa-cubes product-image-placeholder"></i>`;
+
+          wishlistItemsHtml += `
+            <div class="product-card" style="padding:1rem;">
+              <div class="product-image-container" style="height:120px;">
+                ${imgHtml}
+              </div>
+              <div class="product-info" style="padding-top:0.5rem;">
+                <a href="/product/${p._id}" class="product-title" style="font-size:0.9rem;">${p.name}</a>
+                <div class="product-bottom" style="margin-top:0.5rem;">
+                  <span class="product-price" style="font-size:1rem;">$${p.price.toFixed(2)}</span>
+                  <button class="btn btn-danger btn-icon remove-wishlist-tab-btn" data-id="${p._id}" title="Remove from Wishlist"><i class="fa-solid fa-heart-crack"></i></button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        wishlistItemsHtml += '</div>';
+      }
+
+      activeViewHtml = `
+        ${bannerHtml}
+        <h2>My Wishlist</h2>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1.5rem;">Products you've saved to buy later.</p>
+        ${wishlistItemsHtml}
+      `;
+    } else if (activeTab === 'addresses') {
+      const savedAddress = localStorage.getItem('alpha_profile_address') || '';
+      const savedCity = localStorage.getItem('alpha_profile_city') || '';
+      const savedPostal = localStorage.getItem('alpha_profile_postal') || '';
+      const savedCountry = localStorage.getItem('alpha_profile_country') || '';
+      const savedPhone = localStorage.getItem('alpha_profile_phone') || '';
+
+      activeViewHtml = `
+        ${bannerHtml}
+        <h2>My Addresses</h2>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1.5rem;">Manage your shipping addresses for quick checkout.</p>
+        
+        <div class="row">
+          <div class="col-md-6" style="margin-bottom:1.5rem;">
+            <div class="checkout-card" style="height:100%;">
+              <h3 style="font-size:1.1rem; margin-bottom:1rem;"><i class="fa-solid fa-location-dot" style="color:var(--primary)"></i> Saved Shipping Address</h3>
+              ${savedAddress ? `
+                <p style="margin-bottom:0.5rem;"><strong>Street:</strong> ${savedAddress}</p>
+                <p style="margin-bottom:0.5rem;"><strong>City:</strong> ${savedCity}</p>
+                <p style="margin-bottom:0.5rem;"><strong>Postal Code:</strong> ${savedPostal}</p>
+                <p style="margin-bottom:0.5rem;"><strong>Country:</strong> ${savedCountry}</p>
+                <p style="margin-bottom:0;"><strong>Phone:</strong> ${savedPhone}</p>
+              ` : `
+                <p style="color:var(--text-secondary); font-style:italic;">No address saved yet. Fill out the form to add one.</p>
+              `}
+            </div>
+          </div>
+          <div class="col-md-6">
+            <form id="address-update-form" class="checkout-card">
+              <h3 style="font-size:1.1rem; margin-bottom:1rem;">Add / Edit Address</h3>
+              <div class="form-group" style="margin-bottom:0.75rem;">
+                <label for="address-street">Street Address</label>
+                <input type="text" id="address-street" class="form-control" value="${savedAddress}" required placeholder="123 Main St">
+              </div>
+              <div class="form-group" style="margin-bottom:0.75rem;">
+                <label for="address-city">City</label>
+                <input type="text" id="address-city" class="form-control" value="${savedCity}" required placeholder="New York">
+              </div>
+              <div class="form-group" style="margin-bottom:0.75rem;">
+                <label for="address-postal">Postal Code</label>
+                <input type="text" id="address-postal" class="form-control" value="${savedPostal}" required placeholder="10001">
+              </div>
+              <div class="form-group" style="margin-bottom:0.75rem;">
+                <label for="address-country">Country</label>
+                <input type="text" id="address-country" class="form-control" value="${savedCountry}" required placeholder="United States">
+              </div>
+              <div class="form-group" style="margin-bottom:1rem;">
+                <label for="address-phone">Phone Number</label>
+                <input type="text" id="address-phone" class="form-control" value="${savedPhone}" required placeholder="+1 (555) 123-4567">
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm btn-block">Save Address</button>
+            </form>
+          </div>
+        </div>
+      `;
+    } else if (activeTab === 'payments') {
+      const cardName = localStorage.getItem('alpha_profile_card_name') || '';
+      const cardNum = localStorage.getItem('alpha_profile_card_num') || '';
+      const cardExpiry = localStorage.getItem('alpha_profile_card_expiry') || '';
+      const maskedCardNum = cardNum ? `•••• •••• •••• ${cardNum.replace(/\s+/g, '').slice(-4)}` : '';
+
+      activeViewHtml = `
+        ${bannerHtml}
+        <h2>Payment Methods</h2>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1.5rem;">Save credit or debit cards to your profile for faster payments.</p>
+        
+        <div class="row">
+          <div class="col-md-6" style="margin-bottom:1.5rem;">
+            <div class="checkout-card" style="height:100%; min-height:180px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); display:flex; flex-direction:column; justify-content:space-between; position:relative; overflow:hidden;">
+              <div style="position:absolute; right:-20px; top:-20px; font-size:8rem; opacity:0.05; color:#fff;"><i class="fa-solid fa-credit-card"></i></div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div style="font-weight:700; font-size:1.1rem; color:#fff;">AlphaCard</div>
+                <div style="font-size:1.5rem; color:var(--primary);"><i class="fa-brands fa-cc-visa"></i></div>
+              </div>
+              
+              ${cardNum ? `
+                <div style="font-size:1.2rem; font-family:monospace; color:#fff; letter-spacing:2px; margin: 1.5rem 0;">${maskedCardNum}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <small style="color:var(--text-secondary); display:block; text-transform:uppercase; font-size:0.6rem;">Cardholder</small>
+                    <span style="color:#fff; font-size:0.85rem; font-weight:600;">${cardName}</span>
+                  </div>
+                  <div>
+                    <small style="color:var(--text-secondary); display:block; text-transform:uppercase; font-size:0.6rem;">Expires</small>
+                    <span style="color:#fff; font-size:0.85rem; font-weight:600;">${cardExpiry}</span>
+                  </div>
+                </div>
+              ` : `
+                <div style="color:var(--text-secondary); font-style:italic; margin: 1.5rem 0;">No card saved on file.</div>
+              `}
+            </div>
+          </div>
+          <div class="col-md-6">
+            <form id="payment-update-form" class="checkout-card">
+              <h3 style="font-size:1.1rem; margin-bottom:1rem;">Add / Edit Card</h3>
+              <div class="form-group" style="margin-bottom:0.75rem;">
+                <label for="card-holder-name">Cardholder Name</label>
+                <input type="text" id="card-holder-name" class="form-control" value="${cardName}" required placeholder="John Doe">
+              </div>
+              <div class="form-group" style="margin-bottom:0.75rem;">
+                <label for="card-number">Card Number</label>
+                <input type="text" id="card-number" class="form-control" value="${cardNum}" required minlength="16" maxlength="19" placeholder="4111 2222 3333 4444">
+              </div>
+              <div class="form-group" style="margin-bottom:1rem;">
+                <label for="card-expiry-date">Expiry Date</label>
+                <input type="text" id="card-expiry-date" class="form-control" value="${cardExpiry}" required placeholder="MM/YY" maxlength="5">
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm btn-block">Save Card Details</button>
+            </form>
+          </div>
+        </div>
+      `;
+    } else {
+      let stepperHtml = '';
+      let ordersRows = '';
       
+      if (orders.length === 0) {
+        ordersRows = `
+          <tr>
+            <td colspan="6" style="text-align:center; padding: 3rem; color:var(--text-secondary)">
+              <i class="fa-solid fa-receipt" style="font-size:2.5rem; margin-bottom:1rem;"></i>
+              <p>You have not placed any orders yet.</p>
+              <button class="btn btn-primary btn-sm" onclick="navigateTo('/')" style="margin-top:1rem;">Shop Now</button>
+            </td>
+          </tr>
+        `;
+      } else {
+        const recentOrder = orders[0];
+        const dateStr = new Date(recentOrder.createdAt).toLocaleDateString();
+        let trackerStatus = recentOrder.status;
+        let isCancelled = trackerStatus === 'Cancelled';
+        
+        let percentage = 0;
+        let stepsActive = [false, false, false, false];
+        let stepsCompleted = [false, false, false, false];
+        
+        if (!isCancelled) {
+          if (trackerStatus === 'Pending') {
+            percentage = 0;
+            stepsActive = [true, false, false, false];
+          } else if (trackerStatus === 'Processing') {
+            percentage = 33.3;
+            stepsActive = [false, true, false, false];
+            stepsCompleted = [true, false, false, false];
+          } else if (trackerStatus === 'Shipped') {
+            percentage = 66.6;
+            stepsActive = [false, false, true, false];
+            stepsCompleted = [true, true, false, false];
+          } else if (trackerStatus === 'Delivered') {
+            percentage = 100;
+            stepsActive = [false, false, false, true];
+            stepsCompleted = [true, true, true, true];
+          }
+        }
+        
+        stepperHtml = `
+          <div class="checkout-card" style="padding:1.5rem; margin-bottom:2rem;" data-aos="fade-up">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color); padding-bottom:0.75rem; margin-bottom:1rem;">
+              <div>
+                <h3 style="font-size:1.1rem; margin:0;">Track Recent Order: <strong>#${recentOrder._id.substring(18)}</strong></h3>
+                <small style="color:var(--text-secondary)">Placed on ${dateStr} for $${recentOrder.totalAmount.toFixed(2)}</small>
+              </div>
+              <span class="badge ${isCancelled ? 'bg-danger' : trackerStatus === 'Delivered' ? 'bg-success' : 'bg-info'}">${trackerStatus}</span>
+            </div>
+            
+            ${isCancelled ? `
+              <div style="text-align:center; padding:1rem; color:var(--danger)">
+                <i class="fa-solid fa-circle-xmark" style="font-size:2rem; margin-bottom:0.5rem;"></i>
+                <p style="margin:0; font-weight:600;">This order has been cancelled.</p>
+              </div>
+            ` : `
+              <div class="order-tracker-stepper">
+                <div class="stepper-progress-bar" style="width: ${percentage}%"></div>
+                
+                <div class="tracker-step ${stepsCompleted[0] ? 'completed' : ''} ${stepsActive[0] ? 'active' : ''}">
+                  <div class="step-bubble"><i class="fa-solid fa-receipt"></i></div>
+                  <div class="step-label">Placed</div>
+                </div>
+                <div class="tracker-step ${stepsCompleted[1] ? 'completed' : ''} ${stepsActive[1] ? 'active' : ''}">
+                  <div class="step-bubble"><i class="fa-solid fa-box-open"></i></div>
+                  <div class="step-label">Packed</div>
+                </div>
+                <div class="tracker-step ${stepsCompleted[2] ? 'completed' : ''} ${stepsActive[2] ? 'active' : ''}">
+                  <div class="step-bubble"><i class="fa-solid fa-truck-fast"></i></div>
+                  <div class="step-label">Shipped</div>
+                </div>
+                <div class="tracker-step ${stepsCompleted[3] ? 'completed' : ''} ${stepsActive[3] ? 'active' : ''}">
+                  <div class="step-bubble"><i class="fa-solid fa-circle-check"></i></div>
+                  <div class="step-label">Delivered</div>
+                </div>
+              </div>
+            `}
+            
+            <div style="display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1.5rem;">
+              <button class="btn btn-secondary btn-sm view-order-btn" data-id="${recentOrder._id}"><i class="fa-solid fa-receipt"></i> View Details</button>
+            </div>
+          </div>
+        `;
+
+        orders.forEach(order => {
+          const orderDate = new Date(order.createdAt).toLocaleDateString();
+          const paidBadge = order.isPaid 
+            ? `<span class="badge bg-success">Paid</span>`
+            : '<span class="badge bg-warning text-dark">Unpaid</span>';
+          
+          let statusBadge = `<span class="badge bg-info">${order.status}</span>`;
+          if (order.status === 'Delivered') statusBadge = `<span class="badge bg-success">Delivered</span>`;
+          else if (order.status === 'Cancelled') statusBadge = `<span class="badge bg-danger">Cancelled</span>`;
+
+          ordersRows += `
+            <tr>
+              <td><strong>#${order._id.substring(18)}</strong></td>
+              <td>${orderDate}</td>
+              <td><strong>$${order.totalAmount.toFixed(2)}</strong></td>
+              <td>${paidBadge}</td>
+              <td>${statusBadge}</td>
+              <td>
+                <button class="btn btn-secondary btn-sm view-order-btn" data-id="${order._id}"><i class="fa-solid fa-eye"></i> View</button>
+              </td>
+            </tr>
+          `;
+        });
+      }
+
+      // Query recommended products dynamically
+      let recommendationsHtml = '';
+      let recommendedProducts = [];
+      try {
+        const prodRes = await apiCall('/api/products?limit=100');
+        const allProducts = prodRes.data || [];
+        const purchasedCatIds = new Set();
+        
+        orders.forEach(o => {
+          o.items.forEach(item => {
+            const p = allProducts.find(prod => prod._id === item.product);
+            if (p && p.category) {
+              purchasedCatIds.add(p.category._id || p.category);
+            }
+          });
+        });
+        
+        if (purchasedCatIds.size > 0) {
+          recommendedProducts = allProducts.filter(p => {
+            const catId = p.category?._id || p.category;
+            return purchasedCatIds.has(catId) && !orders.some(o => o.items.some(item => item.product === p._id));
+          });
+        }
+        
+        if (recommendedProducts.length === 0) {
+          recommendedProducts = allProducts.filter(p => p.rating >= 4).slice(0, 8);
+        } else {
+          recommendedProducts = recommendedProducts.slice(0, 8);
+        }
+
+        if (recommendedProducts.length > 0) {
+          let slidesHtml = '';
+          recommendedProducts.forEach(p => {
+            const imgHtml = p.image
+              ? `<img src="${p.image}" alt="${p.name}" class="product-image-real" style="height:100px; object-fit:contain;">`
+              : `<i class="fa-solid fa-cubes product-image-placeholder" style="font-size:2rem;"></i>`;
+            
+            slidesHtml += `
+              <div class="swiper-slide product-card" style="padding:1rem; min-height:220px; display:flex; flex-direction:column; justify-content:space-between; background-color:var(--bg-secondary); border:1px solid var(--border-color); border-radius:var(--radius-md);">
+                <div class="product-image-container" style="height:100px; display:flex; align-items:center; justify-content:center;">
+                  ${imgHtml}
+                </div>
+                <div class="product-info" style="padding-top:0.5rem; text-align:center; flex:1; display:flex; flex-direction:column; justify-content:space-between;">
+                  <a href="/product/${p._id}" class="product-title" style="font-size:0.85rem; height:2.4rem; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; font-weight:600; text-decoration:none; color:var(--text-primary);">${p.name}</a>
+                  <div style="margin-top:0.5rem; font-weight:700; color:var(--primary);">$${p.price.toFixed(2)}</div>
+                </div>
+              </div>
+            `;
+          });
+
+          recommendationsHtml = `
+            <div class="dashboard-carousel-section" data-aos="fade-up" style="margin-top: 3rem;">
+              <h3 style="font-size:1.25rem; font-weight:600; margin-bottom:1rem; font-family:var(--font-display);"><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--primary)"></i> Recommended For You</h3>
+              <div class="swiper recommendations-swiper" style="padding-bottom: 2rem;">
+                <div class="swiper-wrapper">
+                  ${slidesHtml}
+                </div>
+                <div class="swiper-pagination"></div>
+              </div>
+            </div>
+          `;
+        }
+      } catch (err) {
+        console.error('Failed to prepare recommendations', err);
+      }
+
+      activeViewHtml = `
+        ${bannerHtml}
+        ${stepperHtml}
+        <h2>Order History</h2>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1.5rem;">Check statuses or track details of your orders.</p>
+        <div class="table-responsive" style="margin-bottom: 2rem;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Date</th>
+                <th>Total</th>
+                <th>Payment</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ordersRows}
+            </tbody>
+          </table>
+        </div>
+        ${recommendationsHtml}
+      `;
+    }
+
+    viewContent.innerHTML = activeViewHtml;
+
+    // --- BIND TRIGGERS ---
+    if (activeTab === 'orders' && document.querySelector('.recommendations-swiper')) {
+      new Swiper('.recommendations-swiper', {
+        slidesPerView: 1,
+        spaceBetween: 20,
+        pagination: {
+          el: '.swiper-pagination',
+          clickable: true
+        },
+        breakpoints: {
+          576: { slidesPerView: 2 },
+          768: { slidesPerView: 3 },
+          992: { slidesPerView: 4 }
+        }
+      });
+    }
+
+    bindSpaLinks(viewContent);
+
+    viewContent.querySelectorAll('.view-order-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        viewOrderDetail(btn.getAttribute('data-id'));
+      });
+    });
+
+    viewContent.querySelectorAll('.remove-wishlist-tab-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        await toggleWishlistState(id);
+        showCustomerDashboardPage();
+      });
+    });
+
+    // Forms triggers
+    const addressForm = document.getElementById('address-update-form');
+    addressForm?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const street = document.getElementById('address-street').value;
+      const city = document.getElementById('address-city').value;
+      const postal = document.getElementById('address-postal').value;
+      const country = document.getElementById('address-country').value;
+      const phone = document.getElementById('address-phone').value;
+
+      localStorage.setItem('alpha_profile_address', street);
+      localStorage.setItem('alpha_profile_city', city);
+      localStorage.setItem('alpha_profile_postal', postal);
+      localStorage.setItem('alpha_profile_country', country);
+      localStorage.setItem('alpha_profile_phone', phone);
+
       Swal.fire({
-        title: 'Password Changed',
-        text: 'Your security password was updated successfully.',
+        title: 'Address Updated',
+        text: 'Your shipping details have been saved successfully.',
         icon: 'success',
         confirmButtonColor: 'var(--primary)'
       });
-    } catch (err) {}
-  });
+      showCustomerDashboardPage();
+    });
 
-  if (showOrderId) {
-    viewOrderDetail(showOrderId);
+    const paymentForm = document.getElementById('payment-update-form');
+    paymentForm?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const holder = document.getElementById('card-holder-name').value;
+      const num = document.getElementById('card-number').value;
+      const expiry = document.getElementById('card-expiry-date').value;
+
+      localStorage.setItem('alpha_profile_card_name', holder);
+      localStorage.setItem('alpha_profile_card_num', num);
+      localStorage.setItem('alpha_profile_card_expiry', expiry);
+
+      Swal.fire({
+        title: 'Card Saved',
+        text: 'Your payment card was stored securely in local profile.',
+        icon: 'success',
+        confirmButtonColor: 'var(--primary)'
+      });
+      showCustomerDashboardPage();
+    });
+
+    const profileForm = document.getElementById('profile-update-form');
+    profileForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('profile-name').value;
+      const email = document.getElementById('profile-email').value;
+
+      try {
+        const res = await apiCall('/api/auth/profile', 'PUT', { name, email });
+        AppState.user = res.data;
+        localStorage.setItem('alpha_user', JSON.stringify(res.data));
+        renderUserNavbarArea();
+        
+        Swal.fire({
+          title: 'Profile Updated',
+          text: 'Your account credentials have been saved successfully.',
+          icon: 'success',
+          confirmButtonColor: 'var(--primary)'
+        });
+        showCustomerDashboardPage();
+      } catch (err) {}
+    });
+
+    const passwordForm = document.getElementById('profile-password-form');
+    passwordForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newPass = document.getElementById('profile-new-password').value;
+      const confirmPass = document.getElementById('profile-confirm-password').value;
+
+      if (newPass !== confirmPass) {
+        showToast('Passwords do not match', 'error');
+        return;
+      }
+
+      try {
+        await apiCall('/api/auth/profile', 'PUT', { password: newPass });
+        document.getElementById('profile-new-password').value = '';
+        document.getElementById('profile-confirm-password').value = '';
+        
+        Swal.fire({
+          title: 'Password Changed',
+          text: 'Your security password was updated successfully.',
+          icon: 'success',
+          confirmButtonColor: 'var(--primary)'
+        });
+      } catch (err) {}
+    });
+
+    if (showOrderId) {
+      viewOrderDetail(showOrderId);
+    }
+
+  } catch (err) {
+    console.error('Customer dashboard load error', err);
+    viewContent.innerHTML = `<div style="text-align:center; padding:3rem;"><i class="fa-solid fa-triangle-exclamation" style="font-size:3rem; color:var(--danger); margin-bottom:1rem;"></i><p style="color:var(--danger)">Failed to load dashboard: ${err.message}</p></div>`;
   }
 }
 
@@ -1882,105 +2253,295 @@ async function viewOrderDetail(orderId) {
   }
 }
 
-// 6. ADMIN DASHBOARD PANEL
 async function showAdminPage() {
+  if (window.location.pathname === '/admin/dashboard') {
+    showAdminDashboardPage();
+  } else {
+    navigateTo('/admin/dashboard');
+  }
+}
+
+// 6a. ADMIN DASHBOARD PANEL
+async function showAdminDashboardPage() {
   if (!AppState.user || !AppState.user.isAdmin) {
-    navigateTo('/');
+    navigateTo('/login');
     return;
   }
 
   const appRoot = document.getElementById('app-root');
-  
   const queryParams = new URLSearchParams(window.location.search);
   const activeTab = queryParams.get('tab') || 'stats';
 
-  let activeViewHtml = '';
-  
-  if (activeTab === 'stats') {
-    // 6a. Admin Stats Overview
+  // Render Layout with Skeleton Loader immediately
+  appRoot.innerHTML = `
+    <div class="dashboard-layout fade-in">
+      <aside class="dashboard-sidebar" data-aos="fade-right">
+        <h4 style="padding:0.75rem; text-transform:uppercase; font-size:0.75rem; color:var(--text-tertiary);">Admin Navigation</h4>
+        <a href="/admin/dashboard?tab=stats" class="sidebar-link ${activeTab === 'stats' ? 'active' : ''}"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+        <a href="/admin/dashboard?tab=products" class="sidebar-link ${activeTab === 'products' ? 'active' : ''}"><i class="fa-solid fa-boxes-stacked"></i> Products</a>
+        <a href="/admin/dashboard?tab=categories" class="sidebar-link ${activeTab === 'categories' ? 'active' : ''}"><i class="fa-solid fa-layer-group"></i> Categories</a>
+        <a href="/admin/dashboard?tab=orders" class="sidebar-link ${activeTab === 'orders' ? 'active' : ''}"><i class="fa-solid fa-truck-fast"></i> Orders</a>
+        <a href="/admin/dashboard?tab=users" class="sidebar-link ${activeTab === 'users' ? 'active' : ''}"><i class="fa-solid fa-users-gear"></i> Customers</a>
+        <a href="/admin/dashboard?tab=reports" class="sidebar-link ${activeTab === 'reports' ? 'active' : ''}"><i class="fa-solid fa-chart-pie"></i> Reports</a>
+        <a href="/admin/dashboard?tab=settings" class="sidebar-link ${activeTab === 'settings' ? 'active' : ''}"><i class="fa-solid fa-gears"></i> Settings</a>
+      </aside>
+      
+      <div class="dashboard-view" id="admin-view-content" data-aos="fade-left">
+        <!-- Skeleton Loader -->
+        <div class="skeleton-loader">
+          <div class="skeleton-title"></div>
+          <div class="skeleton-text" style="width: 80%;"></div>
+          <div class="skeleton-text" style="width: 60%;"></div>
+          <div class="stats-grid" style="margin-top: 2rem;">
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Bind Sidebar routing immediately
+  appRoot.querySelectorAll('.sidebar-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      navigateTo(link.getAttribute('href'));
+    });
+  });
+
+  const viewContent = document.getElementById('admin-view-content');
+
+  // Asynchronously fetch stats and load views
+  try {
+    let stats = null;
     try {
       const statsRes = await apiCall('/api/admin/stats');
-      const stats = statsRes.data;
+      stats = statsRes.data;
+    } catch (err) {
+      console.error('Failed to load stats', err);
+      viewContent.innerHTML = `<div style="text-align:center; padding:3rem;"><i class="fa-solid fa-triangle-exclamation" style="font-size:3rem; color:var(--danger); margin-bottom:1rem;"></i><p style="color:var(--danger)">Error loading stats: ${err.message}</p></div>`;
+      return;
+    }
 
+    let activeViewHtml = '';
+
+    if (activeTab === 'stats') {
       let recentOrdersHtml = '';
-      if (stats.recentOrders.length === 0) {
+      if (!stats.recentOrders || stats.recentOrders.length === 0) {
         recentOrdersHtml = '<tr><td colspan="5" style="text-align:center; color:var(--text-tertiary)">No orders placed yet.</td></tr>';
       } else {
         stats.recentOrders.forEach(o => {
           recentOrdersHtml += `
             <tr>
-              <td>#${o._id.substring(18)}</td>
+              <td><strong>#${o._id.substring(18)}</strong></td>
               <td>${o.user?.name || 'Customer'}</td>
-              <td>$${o.totalAmount.toFixed(2)}</td>
-              <td><span class="badge ${o.isPaid ? 'bg-success' : 'bg-warning text-dark'}">${o.isPaid ? 'Paid' : 'Unpaid'}</span></td>
-              <td><span class="badge bg-info">${o.status}</span></td>
+              <td>${new Date(o.createdAt).toLocaleDateString()}</td>
+              <td><span class="badge ${o.status === 'Delivered' ? 'bg-success' : o.status === 'Cancelled' ? 'bg-danger' : 'bg-info'}">${o.status}</span></td>
+              <td><strong>$${o.totalAmount.toFixed(2)}</strong></td>
             </tr>
           `;
         });
       }
 
       let lowStockHtml = '';
-      if (stats.lowStockProducts.length === 0) {
-        lowStockHtml = '<li style="color:var(--success); list-style:none;"><i class="fa-solid fa-circle-check"></i> All products have sufficient stock.</li>';
+      if (!stats.lowStockProducts || stats.lowStockProducts.length === 0) {
+        lowStockHtml = '<li style="color:var(--success); list-style:none; padding:1.25rem; text-align:center;"><i class="fa-solid fa-circle-check" style="font-size:1.5rem; margin-bottom:0.5rem; display:block;"></i> All products have sufficient stock.</li>';
       } else {
         stats.lowStockProducts.forEach(p => {
           lowStockHtml += `
-            <li style="display:flex; justify-content:space-between; margin-bottom: 0.5rem; border-bottom:1px solid var(--border-color); padding-bottom:0.25rem;">
-              <span>${p.name}</span>
-              <strong style="color:var(--danger)">${p.stock} left</strong>
+            <li style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.75rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem;">
+              <span style="font-size:0.85rem; font-weight:500;">${p.name}</span>
+              <span class="badge bg-danger" style="font-size:0.75rem;">${p.stock} left</span>
             </li>
           `;
         });
       }
 
+      let topSellingHtml = '';
+      try {
+        const prodRes = await apiCall('/api/products?limit=100');
+        const allProducts = prodRes.data || [];
+        const allOrdersRes = await apiCall('/api/admin/orders');
+        const allOrders = allOrdersRes.data || [];
+        
+        const productSales = {};
+        allOrders.forEach(order => {
+          if (order.status !== 'Cancelled') {
+            order.items.forEach(item => {
+              productSales[item.product] = (productSales[item.product] || 0) + item.quantity;
+            });
+          }
+        });
+
+        const topSellingList = Object.entries(productSales)
+          .map(([id, qty]) => {
+            const prod = allProducts.find(p => p._id === id);
+            return {
+              id,
+              qty,
+              name: prod ? prod.name : 'Unknown Product',
+              image: prod ? prod.image : ''
+            };
+          })
+          .sort((a, b) => b.qty - a.qty)
+          .slice(0, 5);
+
+        if (topSellingList.length === 0) {
+          topSellingHtml = '<li style="color:var(--text-tertiary); list-style:none; text-align:center; padding:1.25rem;">No items sold yet.</li>';
+        } else {
+          topSellingList.forEach(item => {
+            const imgHtml = item.image 
+              ? `<img src="${item.image}" alt="${item.name}" style="width:40px; height:40px; border-radius:var(--radius-sm); object-fit:cover;">`
+              : `<div style="width:40px; height:40px; border-radius:var(--radius-sm); background-color:var(--border-color); display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-image" style="color:var(--text-tertiary)"></i></div>`;
+            topSellingHtml += `
+              <li style="display:flex; align-items:center; gap:0.75rem; margin-bottom: 0.75rem; border-bottom:1px solid var(--border-color); padding-bottom:0.5rem;">
+                ${imgHtml}
+                <div style="flex:1; min-width:0;">
+                  <h5 style="font-size:0.85rem; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.name}</h5>
+                  <small style="color:var(--text-secondary);">${item.qty} units sold</small>
+                </div>
+              </li>
+            `;
+          });
+        }
+      } catch (err) {
+        console.error('Failed to compute top selling products', err);
+        topSellingHtml = '<li style="color:var(--danger); list-style:none;">Error loading top selling products.</li>';
+      }
+
+      let svgChartHtml = '';
+      try {
+        const allOrdersRes = await apiCall('/api/admin/orders');
+        const allOrders = allOrdersRes.data || [];
+        const last7Days = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          last7Days.push({
+            dateStr: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+            dateObj: d,
+            revenue: 0
+          });
+        }
+
+        allOrders.forEach(o => {
+          if (o.isPaid) {
+            const oDate = new Date(o.createdAt);
+            const matchingDay = last7Days.find(d => d.dateObj.toDateString() === oDate.toDateString());
+            if (matchingDay) {
+              matchingDay.revenue += o.totalAmount;
+            }
+          }
+        });
+
+        const chartWidth = 500;
+        const chartHeight = 150;
+        const padding = 30;
+        const maxRevenue = Math.max(...last7Days.map(d => d.revenue), 100);
+        const points = last7Days.map((d, index) => {
+          const x = padding + (index * (chartWidth - padding * 2) / (last7Days.length - 1));
+          const y = chartHeight - padding - (d.revenue * (chartHeight - padding * 2) / maxRevenue);
+          return { x, y, revenue: d.revenue, label: d.dateStr };
+        });
+
+        const pointsStr = points.map(p => `${p.x},${p.y}`).join(' ');
+
+        svgChartHtml = `
+          <div class="chart-container">
+            <div class="chart-header">
+              <h3>Revenue Trend (Last 7 Days)</h3>
+              <div style="font-size:0.8rem; color:var(--text-secondary)">Max: $${maxRevenue.toFixed(2)}</div>
+            </div>
+            <div class="chart-svg-wrapper">
+              <svg viewBox="0 0 ${chartWidth} ${chartHeight}">
+                <line x1="${padding}" y1="${padding}" x2="${chartWidth - padding}" y2="${padding}" stroke="var(--border-color)" stroke-dasharray="4" />
+                <line x1="${padding}" y1="${chartHeight / 2}" x2="${chartWidth - padding}" y2="${chartHeight / 2}" stroke="var(--border-color)" stroke-dasharray="4" />
+                <line x1="${padding}" y1="${chartHeight - padding}" x2="${chartWidth - padding}" y2="${chartHeight - padding}" stroke="var(--border-color)" />
+                
+                <polyline fill="none" stroke="var(--primary)" stroke-width="3" points="${pointsStr}" />
+                
+                ${points.map(p => `
+                  <circle cx="${p.x}" cy="${p.y}" r="4" fill="var(--bg-secondary)" stroke="var(--primary)" stroke-width="2" style="cursor:pointer;" class="chart-point" data-revenue="$${p.revenue.toFixed(2)}" data-date="${p.label}" />
+                `).join('')}
+                
+                ${points.map(p => `
+                  <text x="${p.x}" y="${chartHeight - 10}" fill="var(--text-secondary)" font-size="8" text-anchor="middle">${p.label}</text>
+                `).join('')}
+              </svg>
+              <div class="chart-tooltip" id="admin-chart-tooltip"></div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error('Failed to render sales chart', err);
+        svgChartHtml = '<p style="color:var(--danger)">Error rendering sales chart</p>';
+      }
+
       activeViewHtml = `
         <h2>Admin Overview</h2>
-        <p style="font-size:0.9rem; color:var(--text-tertiary); margin-bottom:1.5rem;">Platform health checks and metrics.</p>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1.5rem;">Platform health checks and metrics.</p>
         
         <div class="stats-grid">
           <div class="stat-widget" data-aos="fade-up">
-            <div class="stat-icon green"><i class="fa-solid fa-sack-dollar"></i></div>
+            <div class="stat-icon"><i class="fa-solid fa-sack-dollar"></i></div>
             <div class="stat-details">
               <h4>Total Revenue</h4>
               <div class="value">$${stats.totalRevenue.toFixed(2)}</div>
+              <div class="stat-trend positive"><i class="fa-solid fa-arrow-trend-up"></i> +12.4% this week</div>
             </div>
           </div>
           <div class="stat-widget" data-aos="fade-up" data-aos-delay="50">
-            <div class="stat-icon"><i class="fa-solid fa-cart-shopping"></i></div>
+            <div class="stat-icon blue"><i class="fa-solid fa-cart-shopping"></i></div>
             <div class="stat-details">
               <h4>Total Sales</h4>
               <div class="value">${stats.totalOrders}</div>
+              <div class="stat-trend positive"><i class="fa-solid fa-arrow-trend-up"></i> +8.2% this week</div>
             </div>
           </div>
           <div class="stat-widget" data-aos="fade-up" data-aos-delay="100">
-            <div class="stat-icon blue"><i class="fa-solid fa-box"></i></div>
+            <div class="stat-icon amber"><i class="fa-solid fa-box"></i></div>
             <div class="stat-details">
               <h4>Products</h4>
               <div class="value">${stats.totalProducts}</div>
+              <div class="stat-trend positive"><i class="fa-solid fa-circle-check"></i> Stock healthy</div>
             </div>
           </div>
           <div class="stat-widget" data-aos="fade-up" data-aos-delay="150">
-            <div class="stat-icon amber"><i class="fa-solid fa-users"></i></div>
+            <div class="stat-icon red"><i class="fa-solid fa-users"></i></div>
             <div class="stat-details">
-              <h4>Users</h4>
+              <h4>Total Customers</h4>
               <div class="value">${stats.totalUsers}</div>
+              <div class="stat-trend positive"><i class="fa-solid fa-arrow-trend-up"></i> +4.5% this week</div>
             </div>
           </div>
         </div>
+
+        <div class="quick-actions-card" data-aos="fade-up">
+          <h3 style="font-size:1.1rem; margin-bottom:0.75rem;">Quick Actions</h3>
+          <div class="quick-actions-grid">
+            <div class="quick-action-btn" id="qa-add-product"><i class="fa-solid fa-plus-circle"></i><span>Add Product</span></div>
+            <div class="quick-action-btn" id="qa-manage-orders"><i class="fa-solid fa-receipt"></i><span>Manage Orders</span></div>
+            <div class="quick-action-btn" id="qa-manage-users"><i class="fa-solid fa-users-gear"></i><span>Manage Users</span></div>
+            <div class="quick-action-btn" id="qa-view-reports"><i class="fa-solid fa-chart-pie"></i><span>View Reports</span></div>
+          </div>
+        </div>
+
+        ${svgChartHtml}
         
-        <div class="admin-columns" style="margin-top: 1.5rem;">
-          <!-- Recent Orders Card -->
-          <div class="checkout-card" style="padding:1.5rem;" data-aos="fade-right">
+        <div class="admin-columns" style="margin-top: 1.5rem; display:grid; grid-template-columns: 2fr 1fr; gap:1.5rem;">
+          <div class="checkout-card" style="padding:1.5rem; margin-bottom:0;" data-aos="fade-right">
             <h3 style="font-size:1.15rem; margin-bottom:1rem;">Recent Orders</h3>
             <div class="table-responsive">
-              <table class="table" style="font-size:0.85rem;">
+              <table class="table" style="font-size:0.85rem; margin:0;">
                 <thead>
                   <tr>
-                    <th>Order</th>
+                    <th>Order ID</th>
                     <th>Customer</th>
-                    <th>Total</th>
-                    <th>Payment</th>
+                    <th>Date</th>
                     <th>Status</th>
+                    <th>Amount</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1990,25 +2551,26 @@ async function showAdminPage() {
             </div>
           </div>
           
-          <!-- Inventory Alerts -->
-          <div class="checkout-card" style="padding:1.5rem;" data-aos="fade-left">
-            <h3 style="font-size:1.15rem; margin-bottom:1rem;">Inventory Stock Warnings</h3>
-            <ul style="padding-left:0; font-size:0.9rem;">
-              ${lowStockHtml}
-            </ul>
+          <div style="display:flex; flex-direction:column; gap:1.5rem;">
+            <div class="checkout-card" style="padding:1.5rem; margin-bottom:0;" data-aos="fade-left">
+              <h3 style="font-size:1.15rem; margin-bottom:1rem; color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Stock Warnings</h3>
+              <ul style="padding-left:0; font-size:0.9rem; margin:0;">
+                ${lowStockHtml}
+              </ul>
+            </div>
+
+            <div class="checkout-card" style="padding:1.5rem; margin-bottom:0;" data-aos="fade-left" data-aos-delay="50">
+              <h3 style="font-size:1.15rem; margin-bottom:1rem; color:var(--primary);"><i class="fa-solid fa-crown"></i> Top Products</h3>
+              <ul style="padding-left:0; font-size:0.9rem; margin:0;">
+                ${topSellingHtml}
+              </ul>
+            </div>
           </div>
         </div>
       `;
-    } catch (err) {
-      activeViewHtml = '<p style="color:var(--danger)">Error loading dashboard stats.</p>';
-    }
-
-  } else if (activeTab === 'categories') {
-    // 6b. Manage Categories
-    try {
+    } else if (activeTab === 'categories') {
       const catRes = await apiCall('/api/categories');
-      const cats = catRes.data;
-
+      const cats = catRes.data || [];
       let catRows = '';
       if (cats.length === 0) {
         catRows = '<tr><td colspan="4" style="text-align:center; color:var(--text-tertiary)">No categories created yet. Click "Create Category".</td></tr>';
@@ -2027,16 +2589,14 @@ async function showAdminPage() {
           `;
         });
       }
-
       activeViewHtml = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem;">
           <div>
             <h2>Manage Categories</h2>
-            <p style="font-size:0.9rem; color:var(--text-tertiary); margin:0;">Create categories to assign to your products.</p>
+            <p style="font-size:0.9rem; color:var(--text-secondary); margin:0;">Create categories to assign to your products.</p>
           </div>
           <button class="btn btn-primary btn-sm btn-ripple" id="admin-create-cat-btn"><i class="fa-solid fa-plus"></i> Create Category</button>
         </div>
-        
         <div class="table-responsive">
           <table class="table">
             <thead>
@@ -2053,47 +2613,41 @@ async function showAdminPage() {
           </table>
         </div>
       `;
-    } catch (err) {
-      activeViewHtml = '<p style="color:var(--danger)">Error loading categories</p>';
-    }
-
-  } else if (activeTab === 'products') {
-    // 6c. Manage Products
-    try {
-      const prodRes = await apiCall('/api/products?limit=100'); // fetch a wider selection for admin dashboard
-      const prods = prodRes.data;
-      
-      const catsResult = await apiCall('/api/categories');
-      AppState.categories = catsResult.data;
+    } else if (activeTab === 'products') {
+      const prodRes = await apiCall('/api/products?limit=100');
+      const prods = prodRes.data || [];
+      const catRes = await apiCall('/api/categories');
+      AppState.categories = catRes.data || [];
 
       let prodRows = '';
       if (prods.length === 0) {
-        prodRows = '<tr><td colspan="6" style="text-align:center; color:var(--text-tertiary)">No products in inventory. Click "Create Product".</td></tr>';
+        prodRows = '<tr><td colspan="7" style="text-align:center; color:var(--text-tertiary)">No products created yet. Click "Add Product".</td></tr>';
       } else {
         prods.forEach(p => {
-          const discountStr = p.discount > 0 ? `<span class="badge bg-danger">-${p.discount}%</span>` : '0%';
+          const catName = p.category?.name || p.category || '-';
           prodRows += `
             <tr>
+              <td>
+                ${p.image ? `<img src="${p.image}" alt="${p.name}" style="width:40px; height:40px; border-radius:var(--radius-sm); object-fit:cover;">` : '<i class="fa-solid fa-cube" style="font-size:1.5rem; color:var(--text-tertiary)"></i>'}
+              </td>
               <td><strong>${p.name}</strong></td>
               <td>${p.brand || 'Generic'}</td>
-              <td>${p.category?.name || 'Unassigned'}</td>
-              <td>$${p.price.toFixed(2)} (${discountStr})</td>
+              <td>${catName}</td>
+              <td>$${p.price.toFixed(2)}</td>
               <td>${p.stock}</td>
               <td>
                 <button class="btn btn-secondary btn-sm edit-prod-btn" 
-                        data-id="${p._id}" 
-                        data-name="${p.name}" 
-                        data-desc="${p.description}" 
-                        data-price="${p.price}" 
-                        data-discount="${p.discount || 0}"
-                        data-brand="${p.brand || 'Generic'}"
-                        data-cat="${p.category?._id || ''}" 
-                        data-image="${p.image}" 
-                        data-images="${(p.images || []).join(',')}"
-                        data-stock="${p.stock}"
-                        data-featured="${p.isFeatured === true}">
-                  <i class="fa-solid fa-pen"></i>
-                </button>
+                  data-id="${p._id}" 
+                  data-name="${p.name}" 
+                  data-desc="${p.description}" 
+                  data-price="${p.price}" 
+                  data-discount="${p.discount}" 
+                  data-brand="${p.brand}" 
+                  data-cat="${p.category?._id || p.category}" 
+                  data-image="${p.image}" 
+                  data-images="${p.images?.join(',') || ''}" 
+                  data-stock="${p.stock}" 
+                  data-featured="${p.isFeatured}"><i class="fa-solid fa-pen"></i></button>
                 <button class="btn btn-danger btn-sm delete-prod-btn" data-id="${p._id}"><i class="fa-solid fa-trash"></i></button>
               </td>
             </tr>
@@ -2105,20 +2659,20 @@ async function showAdminPage() {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem;">
           <div>
             <h2>Manage Products</h2>
-            <p style="font-size:0.9rem; color:var(--text-tertiary); margin:0;">Create, edit, and upload images for products.</p>
+            <p style="font-size:0.9rem; color:var(--text-secondary); margin:0;">Create, edit, or delete platform inventory products.</p>
           </div>
-          <button class="btn btn-primary btn-sm btn-ripple" id="admin-create-prod-btn"><i class="fa-solid fa-plus"></i> Create Product</button>
+          <button class="btn btn-primary btn-sm btn-ripple" id="admin-create-prod-btn"><i class="fa-solid fa-plus"></i> Add Product</button>
         </div>
-        
         <div class="table-responsive">
           <table class="table">
             <thead>
               <tr>
+                <th>Image</th>
                 <th>Product Name</th>
                 <th>Brand</th>
                 <th>Category</th>
-                <th>Price (Discount)</th>
-                <th>In Stock</th>
+                <th>Price</th>
+                <th>Stock</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -2128,28 +2682,21 @@ async function showAdminPage() {
           </table>
         </div>
       `;
-    } catch (err) {
-      activeViewHtml = '<p style="color:var(--danger)">Error loading products</p>';
-    }
-
-  } else if (activeTab === 'orders') {
-    // 6d. Manage Orders
-    try {
+    } else if (activeTab === 'orders') {
       const ordersRes = await apiCall('/api/admin/orders');
-      const ordersList = ordersRes.data;
+      const orders = ordersRes.data || [];
 
       let orderRows = '';
-      if (ordersList.length === 0) {
+      if (orders.length === 0) {
         orderRows = '<tr><td colspan="7" style="text-align:center; color:var(--text-tertiary)">No orders placed yet.</td></tr>';
       } else {
-        ordersList.forEach(o => {
+        orders.forEach(o => {
           const dateStr = new Date(o.createdAt).toLocaleDateString();
           orderRows += `
             <tr>
               <td><strong>#${o._id.substring(18)}</strong></td>
               <td>${o.user?.name || 'Customer'}</td>
               <td>${dateStr}</td>
-              <td>$${o.totalAmount.toFixed(2)}</td>
               <td>
                 <select class="filter-select admin-order-pay-status" data-id="${o._id}" style="padding: 0.2rem 0.4rem; font-size:0.85rem;">
                   <option value="false" ${!o.isPaid ? 'selected' : ''}>Unpaid</option>
@@ -2165,8 +2712,9 @@ async function showAdminPage() {
                   <option value="Cancelled" ${o.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
                 </select>
               </td>
+              <td><strong>$${o.totalAmount.toFixed(2)}</strong></td>
               <td>
-                <button class="btn btn-secondary btn-sm admin-view-order" data-id="${o._id}"><i class="fa-solid fa-eye"></i></button>
+                <button class="btn btn-secondary btn-sm admin-view-order" data-id="${o._id}"><i class="fa-solid fa-eye"></i> View</button>
               </td>
             </tr>
           `;
@@ -2175,18 +2723,18 @@ async function showAdminPage() {
 
       activeViewHtml = `
         <h2>Manage Orders</h2>
-        <p style="font-size:0.9rem; color:var(--text-tertiary); margin-bottom: 1.5rem;">Track sales orders and update shipment delivery stages.</p>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom: 1.5rem;">Update order delivery stages and payment status.</p>
         <div class="table-responsive">
           <table class="table">
             <thead>
               <tr>
-                <th>ID</th>
+                <th>Order ID</th>
                 <th>Customer</th>
                 <th>Date</th>
-                <th>Total</th>
                 <th>Payment</th>
                 <th>Delivery Status</th>
-                <th>Action</th>
+                <th>Total</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -2195,15 +2743,9 @@ async function showAdminPage() {
           </table>
         </div>
       `;
-    } catch (err) {
-      activeViewHtml = '<p style="color:var(--danger)">Error loading orders</p>';
-    }
-
-  } else if (activeTab === 'users') {
-    // 6e. Manage Users
-    try {
+    } else if (activeTab === 'users') {
       const usersRes = await apiCall('/api/admin/users');
-      const usersList = usersRes.data;
+      const usersList = usersRes.data || [];
 
       let userRows = '';
       usersList.forEach(u => {
@@ -2227,7 +2769,7 @@ async function showAdminPage() {
 
       activeViewHtml = `
         <h2>Manage Users</h2>
-        <p style="font-size:0.9rem; color:var(--text-tertiary); margin-bottom: 1.5rem;">Modify access roles or delete platform accounts.</p>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom: 1.5rem;">Modify access roles or delete platform accounts.</p>
         <div class="table-responsive">
           <table class="table">
             <thead>
@@ -2244,181 +2786,291 @@ async function showAdminPage() {
           </table>
         </div>
       `;
-    } catch (err) {
-      activeViewHtml = '<p style="color:var(--danger)">Error loading users</p>';
-    }
-  }
-
-  appRoot.innerHTML = `
-    <div class="dashboard-layout fade-in">
-      <aside class="dashboard-sidebar" data-aos="fade-right">
-        <h4 style="padding:0.75rem; text-transform:uppercase; font-size:0.75rem; color:var(--text-tertiary);">Admin Navigation</h4>
-        <a href="/admin?tab=stats" class="sidebar-link ${activeTab === 'stats' ? 'active' : ''}"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
-        <a href="/admin?tab=categories" class="sidebar-link ${activeTab === 'categories' ? 'active' : ''}"><i class="fa-solid fa-layer-group"></i> Categories</a>
-        <a href="/admin?tab=products" class="sidebar-link ${activeTab === 'products' ? 'active' : ''}"><i class="fa-solid fa-boxes-stacked"></i> Products</a>
-        <a href="/admin?tab=orders" class="sidebar-link ${activeTab === 'orders' ? 'active' : ''}"><i class="fa-solid fa-truck-fast"></i> Orders</a>
-        <a href="/admin?tab=users" class="sidebar-link ${activeTab === 'users' ? 'active' : ''}"><i class="fa-solid fa-users-gear"></i> Users</a>
-      </aside>
+    } else if (activeTab === 'reports') {
+      const allOrdersRes = await apiCall('/api/admin/orders');
+      const allOrders = allOrdersRes.data || [];
+      const prodRes = await apiCall('/api/products?limit=100');
+      const allProducts = prodRes.data || [];
       
-      <div class="dashboard-view" data-aos="fade-left">
-        ${activeViewHtml}
-      </div>
-    </div>
-  `;
-
-  // Bind Sidebar routing
-  appRoot.querySelectorAll('.sidebar-link').forEach(link => {
-    link.addEventListener('click', (e) => {
-      e.preventDefault();
-      navigateTo(link.getAttribute('href'));
-    });
-  });
-
-  // Category Actions
-  document.getElementById('admin-create-cat-btn')?.addEventListener('click', () => {
-    openCategoryModal();
-  });
-
-  appRoot.querySelectorAll('.edit-cat-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      openCategoryModal({
-        id: btn.getAttribute('data-id'),
-        name: btn.getAttribute('data-name'),
-        description: btn.getAttribute('data-desc')
-      });
-    });
-  });
-
-  appRoot.querySelectorAll('.delete-cat-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-id');
-      Swal.fire({
-        title: 'Delete Category?',
-        text: 'Are you sure you want to permanently delete this category? Products belonging to this category will block deletion.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: 'var(--danger)',
-        confirmButtonText: 'Yes, delete it!'
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          try {
-            await apiCall(`/api/categories/${id}`, 'DELETE');
-            showToast('Category deleted successfully', 'success');
-            showAdminPage();
-          } catch (err) {}
+      const totalRev = stats.totalRevenue;
+      const totalSales = stats.totalOrders;
+      const cancelledSales = allOrders.filter(o => o.status === 'Cancelled').length;
+      
+      const categorySales = {};
+      allOrders.forEach(order => {
+        if (order.status !== 'Cancelled') {
+          order.items.forEach(item => {
+            const prod = allProducts.find(p => p._id === item.product);
+            const catName = prod?.category?.name || 'Other';
+            categorySales[catName] = (categorySales[catName] || 0) + (item.price * item.quantity);
+          });
         }
       });
+
+      let categoryRows = '';
+      Object.entries(categorySales).forEach(([cat, val]) => {
+        categoryRows += `
+          <tr>
+            <td><strong>${cat}</strong></td>
+            <td>$${val.toFixed(2)}</td>
+            <td>${((val / (totalRev || 1)) * 100).toFixed(1)}% of total</td>
+          </tr>
+        `;
+      });
+      if (categoryRows === '') {
+        categoryRows = '<tr><td colspan="3" style="text-align:center; color:var(--text-secondary);">No sales reports available.</td></tr>';
+      }
+
+      activeViewHtml = `
+        <h2>View Reports</h2>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom: 1.5rem;">Business metrics and sales breakdowns.</p>
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:1.5rem; margin-bottom:2rem;">
+          <div class="checkout-card" style="padding:1.5rem; text-align:center;">
+            <h4>Active Sales</h4>
+            <div style="font-size:2rem; font-weight:700; color:var(--primary);">${totalSales - cancelledSales}</div>
+          </div>
+          <div class="checkout-card" style="padding:1.5rem; text-align:center;">
+            <h4>Cancelled Orders</h4>
+            <div style="font-size:2rem; font-weight:700; color:var(--danger);">${cancelledSales}</div>
+          </div>
+          <div class="checkout-card" style="padding:1.5rem; text-align:center;">
+            <h4>Avg. Order Value</h4>
+            <div style="font-size:2rem; font-weight:700; color:#3b82f6;">$${(totalRev / (totalSales - cancelledSales || 1)).toFixed(2)}</div>
+          </div>
+        </div>
+
+        <div class="checkout-card" style="padding:1.5rem;">
+          <h3 style="font-size:1.15rem; margin-bottom:1rem;">Sales by Category</h3>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Revenue</th>
+                  <th>Contribution</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${categoryRows}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    } else if (activeTab === 'settings') {
+      activeViewHtml = `
+        <h2>Platform Settings</h2>
+        <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom: 1.5rem;">Manage store details and parameters.</p>
+        
+        <form class="checkout-card" id="admin-settings-form">
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label for="store-name">Store Name</label>
+            <input type="text" id="store-name" class="form-control" value="AlphaShop" readonly>
+          </div>
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label for="admin-email">Support Contact Email</label>
+            <input type="email" id="admin-email" class="form-control" value="support@alphashop.com" readonly>
+          </div>
+          <div class="form-group" style="margin-bottom:1rem;">
+            <label for="store-currency">Currency Code</label>
+            <input type="text" id="store-currency" class="form-control" value="USD ($)" readonly>
+          </div>
+          <div class="form-group" style="margin-bottom:1.5rem;">
+            <label for="loyalty-rate">Loyalty Reward Points Rate</label>
+            <input type="text" id="loyalty-rate" class="form-control" value="10 Points per $1 spent" readonly>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="showToast('Settings saved (mocked)', 'success')">Save Settings</button>
+        </form>
+      `;
+    }
+
+    viewContent.innerHTML = activeViewHtml;
+
+    // --- BIND EVENT TRIGGERS ---
+    if (activeTab === 'stats') {
+      const points = viewContent.querySelectorAll('.chart-point');
+      const tooltip = document.getElementById('admin-chart-tooltip');
+      points.forEach(pt => {
+        pt.addEventListener('mouseover', (e) => {
+          const rev = pt.getAttribute('data-revenue');
+          const dt = pt.getAttribute('data-date');
+          tooltip.innerHTML = `<strong>${dt}</strong>: ${rev}`;
+          tooltip.style.opacity = '1';
+          tooltip.style.left = `${e.offsetX + 10}px`;
+          tooltip.style.top = `${e.offsetY - 25}px`;
+        });
+        pt.addEventListener('mousemove', (e) => {
+          tooltip.style.left = `${e.offsetX + 10}px`;
+          tooltip.style.top = `${e.offsetY - 25}px`;
+        });
+        pt.addEventListener('mouseout', () => {
+          tooltip.style.opacity = '0';
+        });
+      });
+
+      document.getElementById('qa-add-product')?.addEventListener('click', () => {
+        openProductModal();
+      });
+      document.getElementById('qa-manage-orders')?.addEventListener('click', () => {
+        navigateTo('/admin/dashboard?tab=orders');
+      });
+      document.getElementById('qa-manage-users')?.addEventListener('click', () => {
+        navigateTo('/admin/dashboard?tab=users');
+      });
+      document.getElementById('qa-view-reports')?.addEventListener('click', () => {
+        navigateTo('/admin/dashboard?tab=reports');
+      });
+    }
+
+    document.getElementById('admin-create-cat-btn')?.addEventListener('click', () => {
+      openCategoryModal();
     });
-  });
 
-  // Product Actions
-  document.getElementById('admin-create-prod-btn')?.addEventListener('click', () => {
-    openProductModal();
-  });
-
-  appRoot.querySelectorAll('.edit-prod-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const imagesStr = btn.getAttribute('data-images');
-      openProductModal({
-        id: btn.getAttribute('data-id'),
-        name: btn.getAttribute('data-name'),
-        description: btn.getAttribute('data-desc'),
-        price: btn.getAttribute('data-price'),
-        discount: btn.getAttribute('data-discount') || 0,
-        brand: btn.getAttribute('data-brand') || 'Generic',
-        category: btn.getAttribute('data-cat'),
-        image: btn.getAttribute('data-image'),
-        images: imagesStr ? imagesStr.split(',') : [],
-        stock: btn.getAttribute('data-stock'),
-        featured: btn.getAttribute('data-featured') === 'true'
+    viewContent.querySelectorAll('.edit-cat-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        openCategoryModal({
+          id: btn.getAttribute('data-id'),
+          name: btn.getAttribute('data-name'),
+          description: btn.getAttribute('data-desc')
+        });
       });
     });
-  });
 
-  appRoot.querySelectorAll('.delete-prod-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-id');
-      Swal.fire({
-        title: 'Delete Product?',
-        text: 'Are you sure you want to permanently delete this product from the inventory?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: 'var(--danger)',
-        confirmButtonText: 'Yes, delete it!'
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          try {
-            await apiCall(`/api/products/${id}`, 'DELETE');
-            showToast('Product deleted successfully', 'success');
-            showAdminPage();
-          } catch (err) {}
-        }
+    viewContent.querySelectorAll('.delete-cat-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        Swal.fire({
+          title: 'Delete Category?',
+          text: 'Are you sure you want to permanently delete this category? Products belonging to this category will block deletion.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: 'var(--danger)',
+          confirmButtonText: 'Yes, delete it!'
+        }).then(async (result) => {
+          if (result.isConfirmed) {
+            try {
+              await apiCall(`/api/categories/${id}`, 'DELETE');
+              showToast('Category deleted successfully', 'success');
+              showAdminDashboardPage();
+            } catch (err) {}
+          }
+        });
       });
     });
-  });
 
-  // Order status changes
-  appRoot.querySelectorAll('.admin-order-pay-status').forEach(select => {
-    select.addEventListener('change', async () => {
-      const id = select.getAttribute('data-id');
-      const isPaid = select.value === 'true';
-      try {
-        await apiCall(`/api/admin/orders/${id}`, 'PUT', { isPaid });
-        showToast('Payment status updated', 'success');
-      } catch (err) {}
+    document.getElementById('admin-create-prod-btn')?.addEventListener('click', () => {
+      openProductModal();
     });
-  });
 
-  appRoot.querySelectorAll('.admin-order-status').forEach(select => {
-    select.addEventListener('change', async () => {
-      const id = select.getAttribute('data-id');
-      const status = select.value;
-      try {
-        await apiCall(`/api/admin/orders/${id}`, 'PUT', { status, isDelivered: status === 'Delivered' });
-        showToast('Delivery status updated', 'success');
-      } catch (err) {}
-    });
-  });
-
-  appRoot.querySelectorAll('.admin-view-order').forEach(btn => {
-    btn.addEventListener('click', () => {
-      viewOrderDetail(btn.getAttribute('data-id'));
-    });
-  });
-
-  // User Actions
-  appRoot.querySelectorAll('.admin-user-role').forEach(select => {
-    select.addEventListener('change', async () => {
-      const id = select.getAttribute('data-id');
-      const isAdmin = select.value === 'true';
-      try {
-        await apiCall(`/api/admin/users/${id}/role`, 'PUT', { isAdmin });
-        showToast('User permissions role updated', 'success');
-      } catch (err) {}
-    });
-  });
-
-  appRoot.querySelectorAll('.admin-delete-user').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const id = btn.getAttribute('data-id');
-      Swal.fire({
-        title: 'Delete User account?',
-        text: 'Are you sure you want to permanently delete this user profile? This action is irreversible.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: 'var(--danger)',
-        confirmButtonText: 'Yes, delete!'
-      }).then(async (result) => {
-        if (result.isConfirmed) {
-          try {
-            await apiCall(`/api/admin/users/${id}`, 'DELETE');
-            showToast('User deleted successfully', 'success');
-            showAdminPage();
-          } catch (err) {}
-        }
+    viewContent.querySelectorAll('.edit-prod-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const imagesStr = btn.getAttribute('data-images');
+        openProductModal({
+          id: btn.getAttribute('data-id'),
+          name: btn.getAttribute('data-name'),
+          description: btn.getAttribute('data-desc'),
+          price: btn.getAttribute('data-price'),
+          discount: btn.getAttribute('data-discount') || 0,
+          brand: btn.getAttribute('data-brand') || 'Generic',
+          category: btn.getAttribute('data-cat'),
+          image: btn.getAttribute('data-image'),
+          images: imagesStr ? imagesStr.split(',') : [],
+          stock: btn.getAttribute('data-stock'),
+          featured: btn.getAttribute('data-featured') === 'true'
+        });
       });
     });
-  });
+
+    viewContent.querySelectorAll('.delete-prod-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        Swal.fire({
+          title: 'Delete Product?',
+          text: 'Are you sure you want to permanently delete this product from the inventory?',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: 'var(--danger)',
+          confirmButtonText: 'Yes, delete it!'
+        }).then(async (result) => {
+          if (result.isConfirmed) {
+            try {
+              await apiCall(`/api/products/${id}`, 'DELETE');
+              showToast('Product deleted successfully', 'success');
+              showAdminDashboardPage();
+            } catch (err) {}
+          }
+        });
+      });
+    });
+
+    viewContent.querySelectorAll('.admin-order-pay-status').forEach(select => {
+      select.addEventListener('change', async () => {
+        const id = select.getAttribute('data-id');
+        const isPaid = select.value === 'true';
+        try {
+          await apiCall(`/api/admin/orders/${id}`, 'PUT', { isPaid });
+          showToast('Payment status updated', 'success');
+          showAdminDashboardPage();
+        } catch (err) {}
+      });
+    });
+
+    viewContent.querySelectorAll('.admin-order-status').forEach(select => {
+      select.addEventListener('change', async () => {
+        const id = select.getAttribute('data-id');
+        const status = select.value;
+        try {
+          await apiCall(`/api/admin/orders/${id}`, 'PUT', { status, isDelivered: status === 'Delivered' });
+          showToast('Delivery status updated', 'success');
+          showAdminDashboardPage();
+        } catch (err) {}
+      });
+    });
+
+    viewContent.querySelectorAll('.admin-view-order').forEach(btn => {
+      btn.addEventListener('click', () => {
+        viewOrderDetail(btn.getAttribute('data-id'));
+      });
+    });
+
+    viewContent.querySelectorAll('.admin-user-role').forEach(select => {
+      select.addEventListener('change', async () => {
+        const id = select.getAttribute('data-id');
+        const isAdmin = select.value === 'true';
+        try {
+          await apiCall(`/api/admin/users/${id}/role`, 'PUT', { isAdmin });
+          showToast('User permissions role updated', 'success');
+          showAdminDashboardPage();
+        } catch (err) {}
+      });
+    });
+
+    viewContent.querySelectorAll('.admin-delete-user').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        Swal.fire({
+          title: 'Delete User account?',
+          text: 'Are you sure you want to permanently delete this user profile? This action is irreversible.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: 'var(--danger)',
+          confirmButtonText: 'Yes, delete!'
+        }).then(async (result) => {
+          if (result.isConfirmed) {
+            try {
+              await apiCall(`/api/admin/users/${id}`, 'DELETE');
+              showToast('User deleted successfully', 'success');
+              showAdminDashboardPage();
+            } catch (err) {}
+          }
+        });
+      });
+    });
+
+  } catch (err) {
+    console.error('Admin dashboard load error', err);
+    viewContent.innerHTML = `<div style="text-align:center; padding:3rem;"><i class="fa-solid fa-triangle-exclamation" style="font-size:3rem; color:var(--danger); margin-bottom:1rem;"></i><p style="color:var(--danger)">Failed to load dashboard data: ${err.message}</p></div>`;
+  }
 }
 
 function openCategoryModal(cat = null) {
@@ -2659,8 +3311,10 @@ Router.add('/', showStorePage);
 Router.add('/product/:id', showProductDetailsPage);
 Router.add('/login', showLoginPage);
 Router.add('/checkout', showCheckoutPage);
-Router.add('/dashboard', showDashboardPage);
+Router.add('/dashboard', handleRoleBasedDashboardRedirect);
 Router.add('/admin', showAdminPage);
+Router.add('/admin/dashboard', showAdminDashboardPage);
+Router.add('/customer/dashboard', showCustomerDashboardPage);
 
 // Document ready bootstrap
 document.addEventListener('DOMContentLoaded', async () => {

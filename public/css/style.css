@@ -1978,3 +1978,411 @@ body.dark-theme .table tr:hover td {
   }
 }
 
+/* --- ROLE-BASED DASHBOARD WIDGETS --- */
+
+/* Welcome Banner */
+.welcome-banner {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(34, 197, 94, 0.08) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.welcome-info h1 {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.welcome-info p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.loyalty-badge {
+  background-color: var(--bg-secondary);
+  border: 1px dashed var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast);
+}
+
+.loyalty-badge:hover {
+  transform: translateY(-2px);
+}
+
+.loyalty-icon {
+  font-size: 1.5rem;
+  color: var(--primary);
+}
+
+.loyalty-details h4 {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.loyalty-details .points {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Stepper (Order Status Tracking) */
+.order-tracker-stepper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  margin: 2rem 0;
+  padding: 0 1rem;
+}
+
+.order-tracker-stepper::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-color: var(--border-color);
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.stepper-progress-bar {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 4px;
+  background-color: var(--primary);
+  transform: translateY(-50%);
+  z-index: 2;
+  transition: width var(--transition-slow);
+}
+
+.tracker-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 3;
+  position: relative;
+}
+
+.step-bubble {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-circle);
+  background-color: var(--bg-secondary);
+  border: 3px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--text-tertiary);
+  transition: all var(--transition-normal);
+}
+
+.tracker-step.active .step-bubble {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+  color: var(--primary);
+  box-shadow: 0 0 12px var(--primary-light);
+}
+
+.tracker-step.completed .step-bubble {
+  border-color: var(--primary);
+  background-color: var(--primary);
+  color: #ffffff;
+}
+
+.step-label {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  transition: color var(--transition-normal);
+}
+
+.tracker-step.active .step-label,
+.tracker-step.completed .step-label {
+  color: var(--text-primary);
+}
+
+/* Custom SVG Sales Chart styling */
+.chart-container {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.chart-header h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.chart-svg-wrapper {
+  position: relative;
+  width: 100%;
+  height: 250px;
+}
+
+.chart-svg-wrapper svg {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-tooltip {
+  position: absolute;
+  background-color: rgba(15, 23, 42, 0.95);
+  color: #ffffff;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  z-index: 10;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Grid layout enhancements */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-widget {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.stat-widget:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background-color: rgba(34, 197, 94, 0.1);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.stat-icon.blue {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.stat-icon.amber {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.stat-icon.red {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.stat-details h4 {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+  font-weight: 500;
+}
+
+.stat-details .value {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.stat-trend {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.stat-trend.positive {
+  color: var(--success);
+}
+
+.stat-trend.negative {
+  color: var(--danger);
+}
+
+/* Quick Actions Widget */
+.quick-actions-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1rem;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  text-align: center;
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.quick-action-btn:hover {
+  background-color: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.quick-action-btn i {
+  font-size: 1.5rem;
+}
+
+/* Recommended Products Carousel */
+.dashboard-carousel-section {
+  margin-top: 2rem;
+}
+
+.dashboard-carousel-section h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.recommendations-swiper {
+  padding: 0.5rem 0.5rem 2.5rem 0.5rem;
+}
+
+/* Loading Skeletons */
+.skeleton-loader {
+  animation: skeleton-glow 1.5s ease-in-out infinite alternate;
+}
+
+.skeleton-text {
+  height: 1rem;
+  background-color: var(--border-color);
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  width: 100%;
+}
+
+.skeleton-title {
+  height: 1.5rem;
+  background-color: var(--border-color);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  width: 50%;
+}
+
+.skeleton-card {
+  height: 120px;
+  background-color: var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+@keyframes skeleton-glow {
+  0% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Mobile Stepper Adjustments */
+@media (max-width: 576px) {
+  .order-tracker-stepper {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.5rem;
+    padding-left: 1.5rem;
+  }
+  
+  .order-tracker-stepper::before {
+    top: 0;
+    bottom: 0;
+    left: 28px;
+    width: 4px;
+    height: 100%;
+    transform: none;
+  }
+  
+  .stepper-progress-bar {
+    top: 0;
+    left: 28px;
+    width: 4px;
+    transform: none;
+    transition: height var(--transition-slow);
+  }
+  
+  .tracker-step {
+    flex-direction: row;
+    gap: 1rem;
+  }
+  
+  .step-label {
+    margin-top: 0;
+    text-align: left;
+  }
+}
+
