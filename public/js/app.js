@@ -1594,7 +1594,7 @@ async function showCustomerDashboardPage() {
   // Render Layout with Skeleton Loader immediately
   appRoot.innerHTML = `
     <div class="dashboard-layout fade-in">
-      <aside class="dashboard-sidebar" data-aos="fade-right">
+      <aside class="dashboard-sidebar">
         <a href="/customer/dashboard?tab=orders" class="sidebar-link ${activeTab === 'orders' ? 'active' : ''}"><i class="fa-solid fa-receipt"></i> My Orders</a>
         <a href="/customer/dashboard?tab=wishlist" class="sidebar-link ${activeTab === 'wishlist' ? 'active' : ''}"><i class="fa-solid fa-heart"></i> Wishlist</a>
         <a href="/customer/dashboard?tab=addresses" class="sidebar-link ${activeTab === 'addresses' ? 'active' : ''}"><i class="fa-solid fa-map-location-dot"></i> Addresses</a>
@@ -1602,7 +1602,7 @@ async function showCustomerDashboardPage() {
         <a href="/customer/dashboard?tab=profile" class="sidebar-link ${activeTab === 'profile' ? 'active' : ''}"><i class="fa-solid fa-user-gear"></i> Account Settings</a>
       </aside>
       
-      <div class="dashboard-view" id="customer-view-content" data-aos="fade-left">
+      <div class="dashboard-view" id="customer-view-content">
         <div class="skeleton-loader">
           <div class="skeleton-title"></div>
           <div class="skeleton-text" style="width: 80%;"></div>
@@ -2275,7 +2275,7 @@ async function showAdminDashboardPage() {
   // Render Layout with Skeleton Loader immediately
   appRoot.innerHTML = `
     <div class="dashboard-layout fade-in">
-      <aside class="dashboard-sidebar" data-aos="fade-right">
+      <aside class="dashboard-sidebar">
         <h4 style="padding:0.75rem; text-transform:uppercase; font-size:0.75rem; color:var(--text-tertiary);">Admin Navigation</h4>
         <a href="/admin/dashboard?tab=stats" class="sidebar-link ${activeTab === 'stats' ? 'active' : ''}"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
         <a href="/admin/dashboard?tab=products" class="sidebar-link ${activeTab === 'products' ? 'active' : ''}"><i class="fa-solid fa-boxes-stacked"></i> Products</a>
@@ -2286,7 +2286,7 @@ async function showAdminDashboardPage() {
         <a href="/admin/dashboard?tab=settings" class="sidebar-link ${activeTab === 'settings' ? 'active' : ''}"><i class="fa-solid fa-gears"></i> Settings</a>
       </aside>
       
-      <div class="dashboard-view" id="admin-view-content" data-aos="fade-left">
+      <div class="dashboard-view" id="admin-view-content">
         <!-- Skeleton Loader -->
         <div class="skeleton-loader">
           <div class="skeleton-title"></div>
@@ -3485,10 +3485,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 11. Process initial route path
-  Router.handleRoute(window.location.pathname);
+  Router.handleRoute(window.location.pathname + window.location.search);
 });
 
 // Intercept popstate to handle browser back/forward buttons
 window.addEventListener('popstate', () => {
-  Router.handleRoute(window.location.pathname);
+  Router.handleRoute(window.location.pathname + window.location.search);
 });
