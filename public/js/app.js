@@ -3215,6 +3215,11 @@ function openProductModal(prod = null) {
         </select>
       </div>
 
+      <div class="form-group" style="margin-bottom:0.75rem;">
+        <label for="modal-prod-image">Main Image URL</label>
+        <input type="text" id="modal-prod-image" class="form-control" value="${imageVal}" placeholder="e.g. /images/products/laptop.jpg or http://...">
+      </div>
+
       <!-- File upload area (Multer backend check) -->
       <div class="form-group" style="margin-bottom:0.75rem; border:1px dashed var(--border-color); padding: 0.75rem; border-radius: var(--radius-sm); background:var(--bg-primary);">
         <label style="font-weight:600; margin-bottom:0.25rem;">Product Gallery Images (Multer Upload)</label>
@@ -3277,6 +3282,11 @@ function openProductModal(prod = null) {
       showToast('Images uploaded successfully', 'success');
       renderUploadedImagesList();
       fileInput.value = ''; // clear input
+
+      const mainImgInput = document.getElementById('modal-prod-image');
+      if (mainImgInput && !mainImgInput.value && result.data.urls.length > 0) {
+        mainImgInput.value = result.data.urls[0];
+      }
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -3285,6 +3295,32 @@ function openProductModal(prod = null) {
   // Bind Form Save Submission
   document.getElementById('modal-prod-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
+
+    const fileInput = document.getElementById('modal-prod-file-input');
+    if (fileInput && fileInput.files.length > 0) {
+      const formData = new FormData();
+      for (let i = 0; i < fileInput.files.length; i++) {
+        formData.append('images', fileInput.files[i]);
+      }
+      try {
+        showToast('Uploading selected images...', 'info');
+        const response = await fetch('/api/upload/multiple', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${AppState.token}`
+          },
+          body: formData
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.message || 'File upload failed');
+        }
+        uploadedImages = [...uploadedImages, ...result.data.urls];
+      } catch (err) {
+        showToast('Auto image upload failed: ' + err.message, 'error');
+        return;
+      }
+    }
     
     const payload = {
       name: document.getElementById('modal-prod-name').value,
@@ -3295,7 +3331,7 @@ function openProductModal(prod = null) {
       stock: document.getElementById('modal-prod-stock').value,
       category: document.getElementById('modal-prod-cat').value,
       images: uploadedImages,
-      image: uploadedImages[0] || '', // default main image to first uploaded image
+      image: document.getElementById('modal-prod-image').value || uploadedImages[0] || '',
       isFeatured: document.getElementById('modal-prod-featured').checked
     };
 
