@@ -1359,6 +1359,7 @@ body.dark-theme .table tr:hover td {
 }
 
 .modal {
+  display: block !important;
   position: fixed;
   top: 50%;
   left: 50%;

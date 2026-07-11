@@ -581,6 +581,8 @@ function navigateTo(url) {
 }
 
 window.navigateTo = navigateTo; // expose globally for easy inline onclick access
+window.closeModal = closeModal;
+window.showToast = showToast;
 
 function bindSpaLinks(parent) {
   const elements = parent ? parent.querySelectorAll('a') : document.querySelectorAll('a');
@@ -2325,6 +2327,13 @@ async function showAdminDashboardPage() {
       return;
     }
 
+    try {
+      const catRes = await apiCall('/api/categories');
+      AppState.categories = catRes.data || [];
+    } catch (err) {
+      console.error('Failed to pre-fetch categories', err);
+    }
+
     let activeViewHtml = '';
 
     if (activeTab === 'stats') {
@@ -3115,7 +3124,7 @@ function openCategoryModal(cat = null) {
         showToast('Category created successfully', 'success');
       }
       closeModal();
-      showAdminPage();
+      navigateTo('/admin/dashboard?tab=categories');
     } catch (err) {}
   });
 }
@@ -3299,7 +3308,7 @@ function openProductModal(prod = null) {
         showToast('Product created successfully', 'success');
       }
       closeModal();
-      showAdminPage();
+      navigateTo('/admin/dashboard?tab=products');
     } catch (err) {}
   });
 }
