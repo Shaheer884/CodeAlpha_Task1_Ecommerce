@@ -3258,37 +3258,29 @@ function openProductModal(prod = null) {
       return;
     }
 
-    const formData = new FormData();
-    for (let i = 0; i < fileInput.files.length; i++) {
-      formData.append('images', fileInput.files[i]);
-    }
-
     try {
-      showToast('Uploading images to server...', 'info');
-      const response = await fetch('/api/upload/multiple', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${AppState.token}`
-        },
-        body: formData
+      showToast('Processing images...', 'info');
+      const readPromises = Array.from(fileInput.files).map(file => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = error => reject(error);
+          reader.readAsDataURL(file);
+        });
       });
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'File upload failed');
-      }
 
-      uploadedImages = [...uploadedImages, ...result.data.urls];
-      showToast('Images uploaded successfully', 'success');
+      const base64Images = await Promise.all(readPromises);
+      uploadedImages = [...uploadedImages, ...base64Images];
+      showToast('Images processed and prepared to save in DB', 'success');
       renderUploadedImagesList();
       fileInput.value = ''; // clear input
 
       const mainImgInput = document.getElementById('modal-prod-image');
-      if (mainImgInput && !mainImgInput.value && result.data.urls.length > 0) {
-        mainImgInput.value = result.data.urls[0];
+      if (mainImgInput && !mainImgInput.value && base64Images.length > 0) {
+        mainImgInput.value = base64Images[0];
       }
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast('Failed to process images: ' + err.message, 'error');
     }
   });
 
@@ -3298,26 +3290,20 @@ function openProductModal(prod = null) {
 
     const fileInput = document.getElementById('modal-prod-file-input');
     if (fileInput && fileInput.files.length > 0) {
-      const formData = new FormData();
-      for (let i = 0; i < fileInput.files.length; i++) {
-        formData.append('images', fileInput.files[i]);
-      }
       try {
-        showToast('Uploading selected images...', 'info');
-        const response = await fetch('/api/upload/multiple', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${AppState.token}`
-          },
-          body: formData
+        showToast('Processing selected images...', 'info');
+        const readPromises = Array.from(fileInput.files).map(file => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+            reader.readAsDataURL(file);
+          });
         });
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.message || 'File upload failed');
-        }
-        uploadedImages = [...uploadedImages, ...result.data.urls];
+        const base64Images = await Promise.all(readPromises);
+        uploadedImages = [...uploadedImages, ...base64Images];
       } catch (err) {
-        showToast('Auto image upload failed: ' + err.message, 'error');
+        showToast('Auto image processing failed: ' + err.message, 'error');
         return;
       }
     }
